@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useRef, useEffect } from "react"
+import { useState, useTransition, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -16,18 +16,6 @@ export default function NovoEditalPage() {
   const [dragging, setDragging] = useState(false)
   const [isPending, startTransition] = useTransition()
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const input = fileInputRef.current
-    if (!input) return
-    const handler = () => {
-      const f = input.files?.[0]
-      if (f) handleFile(f)
-      input.value = ""
-    }
-    input.addEventListener("change", handler)
-    return () => input.removeEventListener("change", handler)
-  }, [])
 
   function handleFile(f: File) {
     const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
@@ -85,6 +73,11 @@ export default function NovoEditalPage() {
         type="file"
         accept=".pdf,application/pdf"
         className="sr-only"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          if (f) handleFile(f)
+          e.target.value = ""
+        }}
       />
       <label
         htmlFor={file ? undefined : "pdf-upload"}
