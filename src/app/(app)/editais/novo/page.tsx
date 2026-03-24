@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useRef } from "react"
+import { useState, useTransition, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,23 @@ export default function NovoEditalPage() {
   const [isPending, startTransition] = useTransition()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    const input = fileInputRef.current
+    if (!input) return
+    const listener = (e: Event) => {
+      const f = (e.target as HTMLInputElement).files?.[0]
+      console.log("native change fired", f?.name, f?.type)
+      if (f) handleFile(f)
+      ;(e.target as HTMLInputElement).value = ""
+    }
+    input.addEventListener("change", listener)
+    return () => input.removeEventListener("change", listener)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function handleFile(f: File) {
-    const isPdf = f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
+    console.log("handleFile called", f.name, f.type)
+    const isPdf = f.type === "application/pdf" || f.type === "" || f.name.toLowerCase().endsWith(".pdf")
     if (!isPdf) {
       toast.error("Apenas arquivos PDF são aceitos.")
       return
@@ -73,14 +88,10 @@ export default function NovoEditalPage() {
         type="file"
         accept=".pdf,application/pdf"
         className="sr-only"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) handleFile(f)
-          e.target.value = ""
-        }}
+        onChange={() => {}}
       />
       <label
-        htmlFor={file ? undefined : "pdf-upload"}
+        htmlFor="pdf-upload"
         onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
@@ -90,7 +101,7 @@ export default function NovoEditalPage() {
             ? "border-primary bg-primary/5"
             : file
             ? "border-border bg-muted/30"
-            : "border-border hover:border-primary/50 hover:bg-muted/20 cursor-pointer"
+            : "border-border hover:border-primary/50 hover:bg-muted/20 cursor-pointer select-none"
         )}
       >
         {file ? (
