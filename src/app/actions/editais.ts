@@ -193,3 +193,109 @@ export async function extrairEdital(formData: FormData): Promise<ExtrairEditalRe
     return { success: false, error: "Erro interno ao processar o edital. Tente novamente." }
   }
 }
+
+// ─── Etapa 2 — Aprovação ──────────────────────────────────────────────────────
+
+export type ActionResult = { success: true } | { success: false; error: string }
+
+export async function aprovarEdital(id: string): Promise<ActionResult> {
+  try {
+    await prisma.edital.update({ where: { id }, data: { status: "COTACAO" } })
+    revalidatePath(`/editais/${id}`)
+    revalidatePath("/editais")
+    return { success: true }
+  } catch {
+    return { success: false, error: "Erro ao aprovar edital." }
+  }
+}
+
+export async function rejeitarEdital(id: string): Promise<ActionResult> {
+  try {
+    await prisma.edital.update({ where: { id }, data: { status: "REJEITADO" } })
+    revalidatePath(`/editais/${id}`)
+    revalidatePath("/editais")
+    return { success: true }
+  } catch {
+    return { success: false, error: "Erro ao rejeitar edital." }
+  }
+}
+
+type AtualizarEditalInput = {
+  titulo: string
+  orgao: string
+  numero_processo?: string
+  numero_pregao?: string
+  plataforma?: string
+  site?: string
+  populacao?: number
+  valor_referencia?: number
+  valor_sigiloso: boolean
+  data_proposta?: string
+  data_abertura?: string
+  data_disputa?: string
+  prazo_adequacao?: string
+  validade_proposta?: string
+  modalidade?: string
+  itens: Array<{
+    numero: number
+    descricao: string
+    participacao?: string
+    unidade?: string
+    quantidade: number
+    valor_unitario?: number
+    lote?: string
+  }>
+}
+
+export async function atualizarEdital(
+  id: string,
+  input: AtualizarEditalInput
+): Promise<ActionResult> {
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.edital.update({
+        where: { id },
+        data: {
+          titulo: input.titulo,
+          orgao: input.orgao,
+          numero_processo: input.numero_processo ?? null,
+          numero_pregao: input.numero_pregao ?? null,
+          plataforma: input.plataforma ?? null,
+          site: input.site ?? null,
+          populacao: input.populacao ?? null,
+          valor_referencia: input.valor_sigiloso ? null : (input.valor_referencia ?? null),
+          valor_sigiloso: input.valor_sigiloso,
+          data_proposta: input.data_proposta ? new Date(input.data_proposta) : null,
+          data_abertura: input.data_abertura ? new Date(input.data_abertura) : null,
+          data_disputa: input.data_disputa ? new Date(input.data_disputa) : null,
+          prazo_adequacao: input.prazo_adequacao ?? null,
+          validade_proposta: input.validade_proposta ?? null,
+          modalidade: input.modalidade ?? null,
+        },
+      })
+      await tx.itemEdital.deleteMany({ where: { edital_id: id } })
+      if (input.itens.length > 0) {
+        await tx.itemEdital.createMany({
+          data: input.itens.map((item) => ({
+            edital_id: id,
+            numero: item.numero,
+            descricao: item.descricao,
+            participacao: item.participacao ?? null,
+            unidade: item.unidade ?? null,
+            quantidade: item.quantidade,
+            valor_unitario: item.valor_unitario ?? null,
+            valor_total:
+              item.valor_unitario != null
+                ? item.valor_unitario * item.quantidade
+                : null,
+            lote: item.lote ?? null,
+          })),
+        })
+      }
+    })
+    revalidatePath(`/editais/${id}`)
+    return { success: true }
+  } catch {
+    return { success: false, error: "Erro ao salvar alterações." }
+  }
+}
